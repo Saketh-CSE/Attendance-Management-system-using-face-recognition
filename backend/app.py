@@ -1,4 +1,4 @@
-# app.py - OPTIMIZED VERSION
+# app.py - FREE DEPLOYMENT OPTIMIZED VERSION
 
 import os
 import time
@@ -89,7 +89,14 @@ THRESHOLD = float(
 )
 
 
-client = MongoClient(MONGODB_URI)
+# ============================================================
+# MONGODB CONNECTION
+# ============================================================
+
+client = MongoClient(
+    MONGODB_URI,
+    serverSelectionTimeoutMS=10000
+)
 
 db = client[DB_NAME]
 
@@ -106,8 +113,14 @@ attendance_collection = attendance_db["attendance_records"]
 
 class ModelManager:
     """
-    Singleton class responsible for loading and sharing
-    face-recognition models.
+    Manages the face recognition models.
+
+    IMPORTANT:
+    MTCNN is initialized during startup.
+    DeepFace / Facenet512 is NOT initialized during startup.
+
+    This prevents Render Free's 512 MB instance from running
+    out of memory before the Flask server opens its port.
     """
 
     _instance = None
@@ -134,13 +147,16 @@ class ModelManager:
 
     def _initialize_models(self):
 
-        logger.info("🤖 Starting model initialization...")
+        logger.info("Starting lightweight model initialization...")
 
         start_time = time.time()
 
         self.models_ready = False
         self.detector = None
+
+        # DeepFace is intentionally NOT loaded at startup.
         self.deepface_ready = False
+        self._deepface = None
 
         try:
 
@@ -155,59 +171,33 @@ class ModelManager:
             self.detector = MTCNN()
 
             logger.info(
-                "✅ MTCNN detector loaded successfully"
+                "MTCNN detector loaded successfully"
             )
 
 
             # =================================================
-            # DEEPFACE
+            # DO NOT LOAD FACENET512 HERE
             # =================================================
 
-            from deepface import DeepFace
+            logger.info(
+                "DeepFace Facenet512 startup warm-up skipped."
+            )
 
             logger.info(
-                "Warming up DeepFace Facenet512 model..."
-            )
-
-            dummy_img = np.zeros(
-                (160, 160, 3),
-                dtype=np.uint8
-            )
-
-            DeepFace.represent(
-                dummy_img,
-                model_name="Facenet512",
-                detector_backend="skip",
-                enforce_detection=False
+                "DeepFace will be loaded only when required."
             )
 
 
-            dummy_img_2 = np.ones(
-                (224, 224, 3),
-                dtype=np.uint8
-            ) * 128
-
-            DeepFace.represent(
-                dummy_img_2,
-                model_name="Facenet512",
-                detector_backend="skip",
-                enforce_detection=False
-            )
-
-
-            self.deepface_ready = True
-
-            logger.info(
-                "✅ DeepFace Facenet512 model warmed up successfully"
-            )
-
+            # =================================================
+            # MARK BASIC SERVER MODELS READY
+            # =================================================
 
             self.models_ready = True
 
             initialization_time = time.time() - start_time
 
             logger.info(
-                f"🎉 All models initialized successfully "
+                f"Lightweight models initialized "
                 f"in {initialization_time:.2f} seconds"
             )
 
@@ -215,7 +205,7 @@ class ModelManager:
         except Exception as e:
 
             logger.error(
-                f"❌ Model initialization failed: {e}"
+                f"Model initialization failed: {e}"
             )
 
             self.models_ready = False
@@ -232,10 +222,63 @@ class ModelManager:
         if not self.models_ready:
 
             raise RuntimeError(
-                "Models not properly initialized"
+                "MTCNN detector is not ready"
             )
 
         return self.detector
+
+
+    # --------------------------------------------------------
+    # LAZY DEEPFACE LOADER
+    # --------------------------------------------------------
+
+    def load_deepface(self):
+
+        """
+        Loads DeepFace only when it is actually needed.
+
+        This prevents Facenet512 from being loaded during
+        Gunicorn/Flask startup.
+        """
+
+        if self._deepface is not None:
+
+            return self._deepface
+
+
+        with self._lock:
+
+            if self._deepface is not None:
+
+                return self._deepface
+
+            logger.info(
+                "Loading DeepFace Facenet512 on demand..."
+            )
+
+            try:
+
+                from deepface import DeepFace
+
+                self._deepface = DeepFace
+
+                self.deepface_ready = True
+
+                logger.info(
+                    "DeepFace Facenet512 loaded successfully."
+                )
+
+                return self._deepface
+
+            except Exception as e:
+
+                self.deepface_ready = False
+
+                logger.error(
+                    f"Failed to load DeepFace: {e}"
+                )
+
+                raise
 
 
     # --------------------------------------------------------
@@ -244,10 +287,18 @@ class ModelManager:
 
     def is_ready(self):
 
-        return (
-            self.models_ready
-            and self.deepface_ready
-        )
+        # Server is ready as soon as the lightweight detector
+        # is initialized.
+        return self.models_ready
+
+
+    # --------------------------------------------------------
+    # DEEPFACE STATUS
+    # --------------------------------------------------------
+
+    def is_deepface_ready(self):
+
+        return self.deepface_ready
 
 
     # --------------------------------------------------------
@@ -256,6 +307,16 @@ class ModelManager:
 
     def health_check(self):
 
+        """
+        Lightweight health check.
+
+        IMPORTANT:
+        Do NOT call Facenet512 here.
+
+        /health must respond without loading a 95 MB model
+        and without performing TensorFlow inference.
+        """
+
         try:
 
             if not self.models_ready:
@@ -263,35 +324,11 @@ class ModelManager:
                 return False
 
 
-            # Test MTCNN
+            # Lightweight MTCNN availability check.
 
-            test_img = np.random.randint(
-                0,
-                255,
-                (100, 100, 3),
-                dtype=np.uint8
-            )
+            if self.detector is None:
 
-            self.detector.detect_faces(test_img)
-
-
-            # Test DeepFace
-
-            from deepface import DeepFace
-
-            test_face = np.random.randint(
-                0,
-                255,
-                (160, 160, 3),
-                dtype=np.uint8
-            )
-
-            DeepFace.represent(
-                test_face,
-                model_name="Facenet512",
-                detector_backend="skip",
-                enforce_detection=False
-            )
+                return False
 
 
             return True
@@ -307,19 +344,21 @@ class ModelManager:
 
 
 # ============================================================
-# INITIALIZE MODELS
-# ============================================================
-
-logger.info("Initializing Model Manager...")
-
-model_manager = ModelManager()
-
-
-# ============================================================
 # FLASK APP
 # ============================================================
 
 app = Flask(__name__)
+
+
+# ============================================================
+# INITIALIZE MODEL MANAGER
+# ============================================================
+
+logger.info(
+    "Initializing Model Manager..."
+)
+
+model_manager = ModelManager()
 
 
 # ============================================================
@@ -337,6 +376,7 @@ CORS(
                 "http://127.0.0.1:3001",
             ]
         },
+
         r"/health": {
             "origins": [
                 "http://localhost:3000",
@@ -388,6 +428,9 @@ def health_check():
 
     model_status = model_manager.is_ready()
 
+    # Lightweight health check.
+    # Facenet512 is intentionally NOT loaded here.
+
     model_health = model_manager.health_check()
 
     return {
@@ -396,8 +439,13 @@ def health_check():
             if model_status and model_health
             else "unhealthy"
         ),
+
         "models_ready": model_status,
+
         "models_healthy": model_health,
+
+        "deepface_loaded": model_manager.is_deepface_ready(),
+
         "timestamp": time.time()
     }
 
@@ -416,7 +464,7 @@ if student_registration_bp:
     )
 
     logger.info(
-        "✅ Student registration blueprint registered"
+        "Student registration blueprint registered"
     )
 
 
@@ -427,7 +475,7 @@ if student_update_bp:
     )
 
     logger.info(
-        "✅ Student update blueprint registered"
+        "Student update blueprint registered"
     )
 
 
@@ -438,7 +486,7 @@ if demo_session_bp:
     )
 
     logger.info(
-        "✅ Demo session blueprint registered"
+        "Demo session blueprint registered"
     )
 
 
@@ -449,7 +497,7 @@ if attendance_bp:
     )
 
     logger.info(
-        "✅ Attendance blueprint registered"
+        "Attendance blueprint registered"
     )
 
 
@@ -460,7 +508,7 @@ if attendance_session_bp:
     )
 
     logger.info(
-        "✅ Attendance session blueprint registered"
+        "Attendance session blueprint registered"
     )
 
 
@@ -468,7 +516,9 @@ if attendance_session_bp:
 # PRINT ROUTES
 # ============================================================
 
-logger.info("\nRegistered Flask Routes:")
+logger.info(
+    "\nRegistered Flask Routes:"
+)
 
 for rule in app.url_map.iter_rules():
 
@@ -484,27 +534,26 @@ for rule in app.url_map.iter_rules():
 if __name__ == "__main__":
 
     logger.info(
-        "🚀 Starting Flask server..."
+        "Starting Flask server..."
     )
-
 
     if model_manager.is_ready():
 
         logger.info(
-            "🎯 All systems ready! "
+            "All lightweight systems ready! "
             "Server starting on http://0.0.0.0:5000"
         )
 
         app.run(
             host="0.0.0.0",
-            port=5000,
+            port=int(os.getenv("PORT", "5000")),
             debug=False
         )
 
     else:
 
         logger.error(
-            "❌ Cannot start server - models not ready"
+            "Cannot start server - basic models not ready"
         )
 
-        exit(1)
+        raise SystemExit(1)
