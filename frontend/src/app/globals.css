@@ -1,0 +1,228 @@
+@import "tailwindcss";
+
+:root {
+  --smart-bg: #f6f8fc;
+  --smart-border: #e5eaf2;
+  --smart-ink: #0b1020;
+  --smart-muted: #71809a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--smart-bg);
+}
+
+/* =========================
+   SmartAttend motion system
+   ========================= */
+
+@keyframes smart-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes smart-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes smart-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes smart-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes smart-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.smart-page-enter {
+  animation: smart-fade-up 0.45s ease-out both;
+}
+
+.smart-fade-in {
+  animation: smart-fade-in 0.35s ease-out both;
+}
+
+.smart-scale-in {
+  animation: smart-scale-in 0.3s ease-out both;
+}
+
+/* Cards */
+.smart-card {
+  border: 1px solid var(--smart-border);
+  background: white;
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.045);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.smart-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.09);
+  border-color: #d7deea;
+}
+
+/* Buttons */
+.smart-button {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.smart-button:hover {
+  transform: translateY(-1px);
+}
+
+.smart-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.smart-button:disabled {
+  transform: none;
+}
+
+/* Navigation */
+.smart-nav-item {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.smart-nav-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-105%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12),
+    transparent
+  );
+  transition: transform 450ms ease;
+}
+
+.smart-nav-item:hover::before {
+  transform: translateX(105%);
+}
+
+.smart-nav-item:hover {
+  transform: translateX(2px);
+}
+
+.smart-nav-active {
+  box-shadow: 0 8px 22px rgba(2, 6, 23, 0.16);
+}
+
+/* Inputs */
+.smart-input {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.smart-input:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+}
+
+/* Status dot */
+.smart-status-dot {
+  animation: smart-pulse 1.8s ease-in-out infinite;
+}
+
+/* Skeleton/loading utility */
+.smart-skeleton {
+  background: linear-gradient(
+    90deg,
+    #f1f4f8 25%,
+    #e7ebf2 50%,
+    #f1f4f8 75%
+  );
+  background-size: 200% 100%;
+  animation: smart-shimmer 1.4s linear infinite;
+}
+
+/* Tables */
+.smart-table-row {
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.smart-table-row:hover {
+  background: #f8fafc;
+}
+
+/* Modal */
+.smart-modal {
+  animation: smart-scale-in 0.22s ease-out both;
+}
+
+/* Make page sections appear naturally */
+.smart-stagger > * {
+  animation: smart-fade-up 0.45s ease-out both;
+}
+
+.smart-stagger > *:nth-child(1) { animation-delay: 40ms; }
+.smart-stagger > *:nth-child(2) { animation-delay: 80ms; }
+.smart-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.smart-stagger > *:nth-child(4) { animation-delay: 160ms; }
+.smart-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.smart-stagger > *:nth-child(6) { animation-delay: 240ms; }
+
+/* Respect reduced-motion accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -6,68 +6,175 @@ import csv
 import tkinter as tk
 from tkinter import *
 
+
 def subjectchoose(text_to_speech):
+
     def calculate_attendance():
-        Subject = tx.get()
-        if Subject=="":
-            t='Please enter the subject name.'
+
+        Subject = tx.get().strip()
+
+        if Subject == "":
+            t = "Please enter the subject name."
             text_to_speech(t)
-    
+            return
+
+        # Find attendance CSV files
         filenames = glob(
             f"Attendance\\{Subject}\\{Subject}*.csv"
         )
-        df = [pd.read_csv(f) for f in filenames]
-        newdf = df[0]
-        for i in range(1, len(df)):
-            newdf = newdf.merge(df[i], how="outer")
-        newdf.fillna(0, inplace=True)
-        newdf["Attendance"] = 0
-        for i in range(len(newdf)):
-            newdf["Attendance"].iloc[i] = str(int(round(newdf.iloc[i, 2:-1].mean() * 100)))+'%'
-            #newdf.sort_values(by=['Enrollment'],inplace=True)
-        newdf.to_csv(f"Attendance\\{Subject}\\attendance.csv", index=False)
 
+        # Check whether files exist
+        if not filenames:
+            t = f"No attendance records found for {Subject}."
+            text_to_speech(t)
+            return
+
+        # Read all CSV files
+        df = [pd.read_csv(f) for f in filenames]
+
+        # Start with first dataframe
+        newdf = df[0]
+
+        # Merge remaining attendance files
+        for i in range(1, len(df)):
+            newdf = newdf.merge(
+                df[i],
+                how="outer"
+            )
+
+        # Replace missing values with 0
+        newdf.fillna(0, inplace=True)
+
+        # Create Attendance column as object/string type
+        newdf["Attendance"] = ""
+
+        # Calculate attendance percentage
+        for i in range(len(newdf)):
+
+            # Take attendance columns only
+            attendance_values = newdf.iloc[i, 2:-1]
+
+            # Convert values to numeric
+            attendance_values = pd.to_numeric(
+                attendance_values,
+                errors="coerce"
+            )
+
+            # Calculate percentage
+            attendance_percentage = (
+                int(round(attendance_values.mean() * 100))
+            )
+
+            # Store percentage
+            newdf.loc[i, "Attendance"] = (
+                str(attendance_percentage) + "%"
+            )
+
+        # Optional: sort by Enrollment
+        # newdf.sort_values(
+        #     by=["Enrollment"],
+        #     inplace=True
+        # )
+
+        # Save final attendance file
+        attendance_folder = f"Attendance\\{Subject}"
+
+        os.makedirs(
+            attendance_folder,
+            exist_ok=True
+        )
+
+        output_file = (
+            f"{attendance_folder}\\attendance.csv"
+        )
+
+        newdf.to_csv(
+            output_file,
+            index=False
+        )
+
+        # Display attendance window
         root = tkinter.Tk()
-        root.title("Attendance of "+Subject)
-        root.configure(background="black")
-        cs = f"Attendance\\{Subject}\\attendance.csv"
-        with open(cs) as file:
+
+        root.title(
+            "Attendance of " + Subject
+        )
+
+        root.configure(
+            background="black"
+        )
+
+        with open(
+            output_file,
+            newline=""
+        ) as file:
+
             reader = csv.reader(file)
+
             r = 0
 
-            for col in reader:
+            for row_data in reader:
+
                 c = 0
-                for row in col:
+
+                for value in row_data:
 
                     label = tkinter.Label(
                         root,
-                        width=10,
+                        width=15,
                         height=1,
                         fg="yellow",
-                        font=("times", 15, " bold "),
+                        font=("times", 15, "bold"),
                         bg="black",
-                        text=row,
+                        text=value,
                         relief=tkinter.RIDGE,
                     )
-                    label.grid(row=r, column=c)
+
+                    label.grid(
+                        row=r,
+                        column=c
+                    )
+
                     c += 1
+
                 r += 1
+
         root.mainloop()
+
         print(newdf)
 
+    # --------------------------------
+    # Subject selection window
+    # --------------------------------
+
     subject = Tk()
-    # windo.iconbitmap("AMS.ico")
+
     subject.title("Subject...")
+
     subject.geometry("580x320")
-    subject.resizable(0, 0)
-    subject.configure(background="black")
-    # subject_logo = Image.open("UI_Image/0004.png")
-    # subject_logo = subject_logo.resize((50, 47), Image.ANTIALIAS)
-    # subject_logo1 = ImageTk.PhotoImage(subject_logo)
-    titl = tk.Label(subject, bg="black", relief=RIDGE, bd=10, font=("arial", 30))
-    titl.pack(fill=X)
-    # l1 = tk.Label(subject, image=subject_logo1, bg="black",)
-    # l1.place(x=100, y=10)
+
+    subject.resizable(
+        0,
+        0
+    )
+
+    subject.configure(
+        background="black"
+    )
+
+    # Title
+    titl = tk.Label(
+        subject,
+        bg="black",
+        relief=RIDGE,
+        bd=10,
+        font=("arial", 30)
+    )
+
+    titl.pack(
+        fill=X
+    )
+
     titl = tk.Label(
         subject,
         text="Which Subject of Attendance?",
@@ -75,18 +182,38 @@ def subjectchoose(text_to_speech):
         fg="green",
         font=("arial", 25),
     )
-    titl.place(x=100, y=12)
+
+    titl.place(
+        x=100,
+        y=12
+    )
+
+    # --------------------------------
+    # Check Sheets button
+    # --------------------------------
 
     def Attf():
-        sub = tx.get()
-        if sub == "":
-            t="Please enter the subject name!!!"
-            text_to_speech(t)
-        else:
-            os.startfile(
-            f"Attendance\\{sub}"
-            )
 
+        sub = tx.get().strip()
+
+        if sub == "":
+            t = "Please enter the subject name!!!"
+            text_to_speech(t)
+
+        else:
+
+            folder_path = f"Attendance\\{sub}"
+
+            if os.path.exists(folder_path):
+
+                os.startfile(
+                    folder_path
+                )
+
+            else:
+
+                t = f"No attendance folder found for {sub}."
+                text_to_speech(t)
 
     attf = tk.Button(
         subject,
@@ -100,7 +227,15 @@ def subjectchoose(text_to_speech):
         width=10,
         relief=RIDGE,
     )
-    attf.place(x=360, y=170)
+
+    attf.place(
+        x=360,
+        y=170
+    )
+
+    # --------------------------------
+    # Subject label
+    # --------------------------------
 
     sub = tk.Label(
         subject,
@@ -113,7 +248,15 @@ def subjectchoose(text_to_speech):
         relief=RIDGE,
         font=("times new roman", 15),
     )
-    sub.place(x=50, y=100)
+
+    sub.place(
+        x=50,
+        y=100
+    )
+
+    # --------------------------------
+    # Subject input
+    # --------------------------------
 
     tx = tk.Entry(
         subject,
@@ -124,7 +267,15 @@ def subjectchoose(text_to_speech):
         relief=RIDGE,
         font=("times", 30, "bold"),
     )
-    tx.place(x=190, y=100)
+
+    tx.place(
+        x=190,
+        y=100
+    )
+
+    # --------------------------------
+    # View Attendance button
+    # --------------------------------
 
     fill_a = tk.Button(
         subject,
@@ -138,5 +289,10 @@ def subjectchoose(text_to_speech):
         width=12,
         relief=RIDGE,
     )
-    fill_a.place(x=195, y=170)
+
+    fill_a.place(
+        x=195,
+        y=170
+    )
+
     subject.mainloop()

@@ -9,24 +9,20 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@vladmandic/face-api": "^1.7.15",
-    "framer-motion": "^12.23.22",
-    "lucide-react": "^0.544.0",
-    "next": "15.5.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "socket.io-client": "^4.8.1",
-    "xlsx": "^0.18.5"
+    "axios": "^1.20.0",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/xlsx": "^0.0.35",
     "eslint": "^9",
-    "eslint-config-next": "15.5.4",
+    "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
